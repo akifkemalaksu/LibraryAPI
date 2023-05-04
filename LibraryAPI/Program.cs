@@ -21,6 +21,7 @@ builder.Services.AddDistributedSqlServerCache(options =>
     options.SchemaName = "dbo";
     options.TableName = "Cache";
 });
+builder.Services.AddScoped<ICustomCache, DistributedCache>();
 
 //builder.Services.AddStackExchangeRedisCache((options) =>
 //{

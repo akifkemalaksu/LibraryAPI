@@ -1,4 +1,5 @@
-﻿using LibraryAPI.Contexts;
+﻿using LibraryAPI.Caching.Interfaces;
+using LibraryAPI.Contexts;
 using LibraryAPI.Dtos;
 using LibraryAPI.Entities;
 using Microsoft.AspNetCore.Http;
@@ -12,23 +13,23 @@ namespace LibraryAPI.Controllers
     public class BooksController : ControllerBase
     {
         private const string BOOKS_LIST_FOR_CACHING = "books";
-        private readonly IMemoryCache _memoryCache;
+        private readonly ICustomCache _customCache;
         private readonly LibraryContext _libraryContext;
 
-        public BooksController(LibraryContext libraryContext, IMemoryCache memoryCache)
+        public BooksController(LibraryContext libraryContext, ICustomCache customCache)
         {
             _libraryContext = libraryContext;
-            _memoryCache = memoryCache;
+            _customCache = customCache;
         }
 
         [HttpGet]
         public IActionResult Get()
         {
-            var books = _memoryCache.Get<List<Book>>(BOOKS_LIST_FOR_CACHING);
+            var books = _customCache.Get<List<Book>>(BOOKS_LIST_FOR_CACHING);
             if (books is null)
             {
                 books = _libraryContext.Books.ToList();
-                _memoryCache.Set("books", books, DateTime.Now.AddSeconds(10));
+                _customCache.Set("books", books, DateTime.Now.AddSeconds(10));
             }
             return Ok(books);
         }
@@ -49,7 +50,7 @@ namespace LibraryAPI.Controllers
             };
             _libraryContext.Add(book);
             _libraryContext.SaveChanges();
-            _memoryCache.Remove(BOOKS_LIST_FOR_CACHING);
+            _customCache.Remove(BOOKS_LIST_FOR_CACHING);
             return Ok();
         }
 
@@ -61,7 +62,7 @@ namespace LibraryAPI.Controllers
 
             _libraryContext.Remove(book);
             _libraryContext.SaveChanges();
-            _memoryCache.Remove(BOOKS_LIST_FOR_CACHING);
+            _customCache.Remove(BOOKS_LIST_FOR_CACHING);
             return Ok();
         }
 
@@ -74,7 +75,7 @@ namespace LibraryAPI.Controllers
             book.Name = updateBook.Name;
             _libraryContext.Update(book);
             _libraryContext.SaveChanges();
-            _memoryCache.Remove(BOOKS_LIST_FOR_CACHING);
+            _customCache.Remove(BOOKS_LIST_FOR_CACHING);
             return Ok();
         }
     }

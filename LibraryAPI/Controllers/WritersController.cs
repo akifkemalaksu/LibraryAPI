@@ -1,4 +1,5 @@
-﻿using LibraryAPI.Contexts;
+﻿using LibraryAPI.Caching.Interfaces;
+using LibraryAPI.Contexts;
 using LibraryAPI.Dtos;
 using LibraryAPI.Entities;
 using Microsoft.AspNetCore.Http;
@@ -15,27 +16,23 @@ namespace LibraryAPI.Controllers
         private const string WRITERS_LIST_FOR_CACHING = "writers";
 
         private readonly LibraryContext _libraryContext;
-        private readonly IDistributedCache _distributedCache;
+        private readonly ICustomCache _customCache;
 
-        public WritersController(LibraryContext libraryContext, IDistributedCache distributedCache)
+        public WritersController(LibraryContext libraryContext, ICustomCache customCache)
         {
             _libraryContext = libraryContext;
-            _distributedCache = distributedCache;
+            _customCache = customCache;
         }
 
         [HttpGet]
         public IActionResult Get()
         {
-            var writersAsJsonString = _distributedCache.GetString(WRITERS_LIST_FOR_CACHING);
-            if (string.IsNullOrEmpty(writersAsJsonString))
+            var writers = _customCache.Get<List<Writer>>(WRITERS_LIST_FOR_CACHING);
+            if (writers is null)
             {
-                var writersFromDb = _libraryContext.Writers.ToList();
-                var writersFromDbAsJsonString = JsonSerializer.Serialize(writersFromDb);
-                _distributedCache.SetString(WRITERS_LIST_FOR_CACHING, writersFromDbAsJsonString);
-                return Ok(writersFromDb);
+                writers = _libraryContext.Writers.ToList();
+                _customCache.Set(WRITERS_LIST_FOR_CACHING,writers);
             }
-
-            var writers = JsonSerializer.Deserialize<List<Writer>>(writersAsJsonString);
             return Ok(writers);
         }
 
@@ -49,7 +46,7 @@ namespace LibraryAPI.Controllers
             var writer = new Writer { Name = addWriter.Name, SurName = addWriter.SurName };
             _libraryContext.Add(writer);
             _libraryContext.SaveChanges();
-            _distributedCache.Remove(WRITERS_LIST_FOR_CACHING);
+            _customCache.Remove(WRITERS_LIST_FOR_CACHING);
             return Ok(writer);
         }
 
@@ -61,7 +58,7 @@ namespace LibraryAPI.Controllers
 
             _libraryContext.Remove(writer);
             _libraryContext.SaveChanges();
-            _distributedCache.Remove(WRITERS_LIST_FOR_CACHING);
+            _customCache.Remove(WRITERS_LIST_FOR_CACHING);
             return Ok();
         }
 
@@ -75,7 +72,7 @@ namespace LibraryAPI.Controllers
             writer.SurName = updateWriter.SurName;
             _libraryContext.Update(writer);
             _libraryContext.SaveChanges();
-            _distributedCache.Remove(WRITERS_LIST_FOR_CACHING);
+            _customCache.Remove(WRITERS_LIST_FOR_CACHING);
             return Ok();
         }
     }

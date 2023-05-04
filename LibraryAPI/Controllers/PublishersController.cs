@@ -1,4 +1,5 @@
-﻿using LibraryAPI.Contexts;
+﻿using LibraryAPI.Caching.Interfaces;
+using LibraryAPI.Contexts;
 using LibraryAPI.Dtos;
 using LibraryAPI.Entities;
 using Microsoft.AspNetCore.Http;
@@ -15,27 +16,23 @@ namespace LibraryAPI.Controllers
         private const string PUBLISHERS_LIST_FOR_CACHING = "publishers";
 
         private readonly LibraryContext _libraryContext;
-        private readonly IDistributedCache _distributedCache;
+        private readonly ICustomCache _customCache;
 
-        public PublishersController(LibraryContext libraryContext, IDistributedCache distributedCache)
+        public PublishersController(LibraryContext libraryContext, ICustomCache customCache)
         {
             _libraryContext = libraryContext;
-            _distributedCache = distributedCache;
+            _customCache = customCache;
         }
 
         [HttpGet]
         public IActionResult Get()
         {
-            var publishersAsJsonString = _distributedCache.GetString(PUBLISHERS_LIST_FOR_CACHING);
-            if (string.IsNullOrEmpty(publishersAsJsonString))
+            var publishers = _customCache.Get<List<Publisher>>(PUBLISHERS_LIST_FOR_CACHING);
+            if (publishers is null)
             {
-                var publishersFromDb = _libraryContext.Publishers.ToList();
-                var publishersFromDbAsJsonString = JsonSerializer.Serialize(publishersFromDb);
-                _distributedCache.SetString(PUBLISHERS_LIST_FOR_CACHING, publishersFromDbAsJsonString);
-                return Ok(publishersFromDb);
+                publishers = _libraryContext.Publishers.ToList();
+                _customCache.Set(PUBLISHERS_LIST_FOR_CACHING,publishers);
             }
-
-            var publishers = JsonSerializer.Deserialize<List<Publisher>>(publishersAsJsonString);
             return Ok(publishers);
         }
 
@@ -49,7 +46,7 @@ namespace LibraryAPI.Controllers
             var publisher = new Publisher { Name = addPublisher.Name };
             _libraryContext.Add(publisher);
             _libraryContext.SaveChanges();
-            _distributedCache.Remove(PUBLISHERS_LIST_FOR_CACHING);
+            _customCache.Remove(PUBLISHERS_LIST_FOR_CACHING);
             return Ok(publisher);
         }
 
@@ -61,7 +58,7 @@ namespace LibraryAPI.Controllers
 
             _libraryContext.Remove(publisher);
             _libraryContext.SaveChanges();
-            _distributedCache.Remove(PUBLISHERS_LIST_FOR_CACHING);
+            _customCache.Remove(PUBLISHERS_LIST_FOR_CACHING);
             return Ok();
         }
 
@@ -74,7 +71,7 @@ namespace LibraryAPI.Controllers
             publisher.Name = updatePublisher.Name;
             _libraryContext.Update(publisher);
             _libraryContext.SaveChanges();
-            _distributedCache.Remove(PUBLISHERS_LIST_FOR_CACHING);
+            _customCache.Remove(PUBLISHERS_LIST_FOR_CACHING);
             return Ok();
         }
     }
